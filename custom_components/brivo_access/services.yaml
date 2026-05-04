@@ -1,0 +1,11 @@
+unlock_door:
+  name: Unlock Door
+  description: Performs an Administrator momentary door strike on the specified Brivo access point.
+  fields:
+    door_id:
+      name: Door ID
+      description: The Brivo Access Point ID to unlock.
+      required: true
+      example: "80811788"
+      selector:
+        text:

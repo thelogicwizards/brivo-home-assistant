@@ -1,0 +1,8 @@
+{
+  "domain": "brivo_access",
+  "name": "Brivo Access",
+  "codeowners": ["@thelogicwizards"],
+  "version": "1.0.0",
+  "requirements": [],
+  "iot_class": "cloud_push"
+}
