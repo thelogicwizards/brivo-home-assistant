@@ -183,7 +183,7 @@ brivo-home-assistant/
 
 ## Status
 
-> 🟡 **Development** — The live instance at `office.logicwizards.dev` is currently offline due to a Cloudflare Tunnel configuration issue. The integration code is functional and tested.
+> 🟢 **Live** — The live instance at `office.logicwizards.dev` is online and operational. The integration is functional and tested.
 
 ## License
 
