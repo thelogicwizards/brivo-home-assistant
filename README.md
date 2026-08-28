@@ -169,6 +169,63 @@ template:
               door_id: "12345678"
 ```
 
+## Optional Companion: Z-Wave JS UI Sidebar
+
+If you run a [Z-Wave JS UI](https://github.com/zwave-js/zwave-js-ui) gateway on your network (e.g. a dedicated Raspberry Pi with a Zooz 800 or Aeotec Z-Stick), you can embed it directly in your Home Assistant sidebar for a unified management experience — commission Z-Wave devices and unlock Brivo doors from the same interface.
+
+### Prerequisites
+
+- A Z-Wave JS UI instance accessible on your network (e.g. `http://192.168.1.100:8091`)
+- [MQTT broker](https://mosquitto.org/) (e.g. Mosquitto) running alongside Z-Wave JS UI
+- Z-Wave JS UI configured with **HA MQTT Discovery** enabled:
+  - In Z-Wave JS UI Settings > Gateway, set `hassDiscovery: true` and `discoveryPrefix: homeassistant`
+- HA [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) configured to connect to your broker
+
+### Add Sidebar Link
+
+Add the following to your `configuration.yaml` to embed Z-Wave JS UI in the HA sidebar:
+
+```yaml
+panel_iframe:
+  zwavejsui:
+    title: "Z-Wave JS UI"
+    url: "http://<YOUR_ZWAVE_HOST_IP>:8091"
+    icon: "mdi:z-wave"
+    require_admin: true
+```
+
+> ⚠️ **Network note:** The `panel_iframe` URL must be reachable from your **browser**, not from the HA server. If you access HA remotely (e.g. via Cloudflare Tunnel), the iframe will only load when your browser is on the same LAN as the Z-Wave JS UI host — unless you also expose Z-Wave JS UI through your tunnel or reverse proxy.
+
+Restart Home Assistant to apply.
+
+### Commissioning Z-Wave Devices
+
+Once the sidebar is configured:
+
+1. Click **"Z-Wave JS UI"** in the HA sidebar
+2. Go to **Control Panel** > **Manage Nodes** > **Add Node**
+3. Select inclusion mode (**S2 Authenticated** recommended)
+4. Put your Z-Wave device in pairing mode (see device manual — typically 3 quick taps on the paddle/button)
+5. Complete the S2 security handshake if prompted (enter the 5-digit DSK from the device label)
+6. Once the interview completes, the device **auto-discovers in HA** via MQTT within seconds
+7. Find your new device in **Settings > Devices & Services > MQTT**
+
+### MQTT Bridge Setup
+
+Your Z-Wave gateway publishes device state over MQTT. HA subscribes to the broker and auto-discovers entities. The data flow:
+
+```
+Z-Wave Device <-> Z-Wave JS UI <-> MQTT Broker <-> Home Assistant
+   (908 MHz)      (USB stick)     (Mosquitto)    (MQTT integration)
+```
+
+Set up the MQTT integration in HA:
+1. Go to **Settings > Devices & Services > Add Integration > MQTT**
+2. Enter your MQTT broker IP, port `1883`, and credentials
+3. Z-Wave devices with `hassDiscovery` enabled will auto-populate
+
+---
+
 ## Project Structure
 ```
 brivo-home-assistant/
