@@ -169,6 +169,105 @@ template:
               door_id: "12345678"
 ```
 
+## Optional Companion: Z-Wave JS UI Sidebar
+
+If you run a [Z-Wave JS UI](https://github.com/zwave-js/zwave-js-ui) gateway on your network (e.g. a dedicated Raspberry Pi with a Zooz 800 or Aeotec Z-Stick), you can embed it directly in your Home Assistant sidebar for a unified management experience — commission Z-Wave devices and unlock Brivo doors from the same interface.
+
+### Prerequisites
+
+- A Z-Wave JS UI instance accessible on your network (e.g. `http://192.168.1.100:8091`)
+- [MQTT broker](https://mosquitto.org/) (e.g. Mosquitto) running alongside Z-Wave JS UI
+- Z-Wave JS UI configured with **HA MQTT Discovery** enabled:
+  - In Z-Wave JS UI Settings > Gateway, set `hassDiscovery: true` and `discoveryPrefix: homeassistant`
+- HA [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) configured to connect to your broker
+
+### Add Sidebar Link
+
+> ⚠️ **Deprecation notice:** The `panel_iframe` YAML configuration was removed in recent Home Assistant versions. Use the built-in **Webpage Dashboard** feature instead.
+
+In the HA UI:
+
+1. Go to **Settings > Dashboards**
+2. Click **"+ ADD DASHBOARD"** > select **"Webpage"**
+3. Fill in:
+   - **Title**: `Z-Wave JS UI`
+   - **Icon**: `mdi:z-wave`
+   - **URL**: Your Z-Wave JS UI URL (see below)
+   - **Show in sidebar**: ON
+   - **Require admin**: ON
+4. Click **Create**
+
+#### Choosing the Right URL
+
+If your HA instance is served over **HTTPS** (e.g. via Cloudflare Tunnel, Nginx, or Nabu Casa), you **cannot** embed a plain `http://` URL — modern browsers block mixed content (HTTP iframe inside HTTPS page). You have two options:
+
+| Scenario | URL to Use |
+|---|---|
+| **HA accessed over HTTP** (LAN only) | `http://<ZWAVE_HOST_IP>:8091` |
+| **HA accessed over HTTPS** (remote/tunneled) | `https://<YOUR_ZWAVE_SUBDOMAIN>` (see tunnel setup below) |
+
+### Tunnel Setup (Cloudflare)
+
+If you use a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) for remote HA access, you can route Z-Wave JS UI through the same tunnel to serve it over HTTPS — eliminating the mixed-content problem.
+
+**How it works:** Cloudflare terminates SSL on the public side, then connects to your local Z-Wave JS UI over plain HTTP through the encrypted tunnel. The service type in the tunnel config is `HTTP` even though users access it via `HTTPS`:
+
+```
+Browser (HTTPS) → Cloudflare Edge (SSL termination) → Encrypted Tunnel → cloudflared → HTTP://zwave-host:8091
+```
+
+**Add a public hostname** to your tunnel:
+
+1. Open the [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/) > **Networks** > **Tunnels**
+2. Select your tunnel and go to the **Public Hostname** tab
+3. Click **"Add a public hostname"** with:
+   - **Subdomain**: `zwave` (or your preference)
+   - **Domain**: your domain
+   - **Type**: `HTTP`
+   - **URL**: `<ZWAVE_HOST_IP>:8091`
+4. Save — Cloudflare will auto-create the DNS record
+
+Then set the Webpage Dashboard URL to `https://zwave.yourdomain.com`.
+
+#### Hardening with Cloudflare Access
+
+Exposing Z-Wave JS UI publicly — even through a tunnel — means anyone who discovers the URL could reach it. Protect it with a [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) policy:
+
+1. In Zero Trust Dashboard, go to **Access** > **Applications** > **Add an application**
+2. Select **Self-hosted** and set the domain to your Z-Wave JS UI hostname (e.g. `zwave.yourdomain.com`)
+3. Create a policy requiring authentication (e.g. **Email OTP**, **GitHub login**, or your identity provider)
+4. Save — users will now be prompted to authenticate before reaching Z-Wave JS UI
+
+This ensures only authorized users can access your Z-Wave controller, even if the URL is discovered.
+
+### Commissioning Z-Wave Devices
+
+Once the sidebar is configured:
+
+1. Click **"Z-Wave JS UI"** in the HA sidebar
+2. Go to **Control Panel** > **Manage Nodes** > **Add Node**
+3. Select inclusion mode (**S2 Authenticated** recommended)
+4. Put your Z-Wave device in pairing mode (see device manual — typically 3 quick taps on the paddle/button)
+5. Complete the S2 security handshake if prompted (enter the 5-digit DSK from the device label)
+6. Once the interview completes, the device **auto-discovers in HA** via MQTT within seconds
+7. Find your new device in **Settings > Devices & Services > MQTT**
+
+### MQTT Bridge Setup
+
+Your Z-Wave gateway publishes device state over MQTT. HA subscribes to the broker and auto-discovers entities. The data flow:
+
+```
+Z-Wave Device <-> Z-Wave JS UI <-> MQTT Broker <-> Home Assistant
+   (908 MHz)      (USB stick)     (Mosquitto)    (MQTT integration)
+```
+
+Set up the MQTT integration in HA:
+1. Go to **Settings > Devices & Services > Add Integration > MQTT**
+2. Enter your MQTT broker IP, port `1883`, and credentials
+3. Z-Wave devices with `hassDiscovery` enabled will auto-populate
+
+---
+
 ## Project Structure
 ```
 brivo-home-assistant/
@@ -183,7 +282,7 @@ brivo-home-assistant/
 
 ## Status
 
-> 🟡 **Development** — The live instance at `office.logicwizards.dev` is currently offline due to a Cloudflare Tunnel configuration issue. The integration code is functional and tested.
+> 🟢 **Live** — The live instance at `office.logicwizards.dev` is online and operational. The integration is functional and tested.
 
 ## License
 
