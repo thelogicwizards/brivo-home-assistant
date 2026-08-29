@@ -183,20 +183,62 @@ If you run a [Z-Wave JS UI](https://github.com/zwave-js/zwave-js-ui) gateway on 
 
 ### Add Sidebar Link
 
-Add the following to your `configuration.yaml` to embed Z-Wave JS UI in the HA sidebar:
+> ⚠️ **Deprecation notice:** The `panel_iframe` YAML configuration was removed in recent Home Assistant versions. Use the built-in **Webpage Dashboard** feature instead.
 
-```yaml
-panel_iframe:
-  zwavejsui:
-    title: "Z-Wave JS UI"
-    url: "http://<YOUR_ZWAVE_HOST_IP>:8091"
-    icon: "mdi:z-wave"
-    require_admin: true
+In the HA UI:
+
+1. Go to **Settings > Dashboards**
+2. Click **"+ ADD DASHBOARD"** > select **"Webpage"**
+3. Fill in:
+   - **Title**: `Z-Wave JS UI`
+   - **Icon**: `mdi:z-wave`
+   - **URL**: Your Z-Wave JS UI URL (see below)
+   - **Show in sidebar**: ON
+   - **Require admin**: ON
+4. Click **Create**
+
+#### Choosing the Right URL
+
+If your HA instance is served over **HTTPS** (e.g. via Cloudflare Tunnel, Nginx, or Nabu Casa), you **cannot** embed a plain `http://` URL — modern browsers block mixed content (HTTP iframe inside HTTPS page). You have two options:
+
+| Scenario | URL to Use |
+|---|---|
+| **HA accessed over HTTP** (LAN only) | `http://<ZWAVE_HOST_IP>:8091` |
+| **HA accessed over HTTPS** (remote/tunneled) | `https://<YOUR_ZWAVE_SUBDOMAIN>` (see tunnel setup below) |
+
+### Tunnel Setup (Cloudflare)
+
+If you use a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) for remote HA access, you can route Z-Wave JS UI through the same tunnel to serve it over HTTPS — eliminating the mixed-content problem.
+
+**How it works:** Cloudflare terminates SSL on the public side, then connects to your local Z-Wave JS UI over plain HTTP through the encrypted tunnel. The service type in the tunnel config is `HTTP` even though users access it via `HTTPS`:
+
+```
+Browser (HTTPS) → Cloudflare Edge (SSL termination) → Encrypted Tunnel → cloudflared → HTTP://zwave-host:8091
 ```
 
-> ⚠️ **Network note:** The `panel_iframe` URL must be reachable from your **browser**, not from the HA server. If you access HA remotely (e.g. via Cloudflare Tunnel), the iframe will only load when your browser is on the same LAN as the Z-Wave JS UI host — unless you also expose Z-Wave JS UI through your tunnel or reverse proxy.
+**Add a public hostname** to your tunnel:
 
-Restart Home Assistant to apply.
+1. Open the [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/) > **Networks** > **Tunnels**
+2. Select your tunnel and go to the **Public Hostname** tab
+3. Click **"Add a public hostname"** with:
+   - **Subdomain**: `zwave` (or your preference)
+   - **Domain**: your domain
+   - **Type**: `HTTP`
+   - **URL**: `<ZWAVE_HOST_IP>:8091`
+4. Save — Cloudflare will auto-create the DNS record
+
+Then set the Webpage Dashboard URL to `https://zwave.yourdomain.com`.
+
+#### Hardening with Cloudflare Access
+
+Exposing Z-Wave JS UI publicly — even through a tunnel — means anyone who discovers the URL could reach it. Protect it with a [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) policy:
+
+1. In Zero Trust Dashboard, go to **Access** > **Applications** > **Add an application**
+2. Select **Self-hosted** and set the domain to your Z-Wave JS UI hostname (e.g. `zwave.yourdomain.com`)
+3. Create a policy requiring authentication (e.g. **Email OTP**, **GitHub login**, or your identity provider)
+4. Save — users will now be prompted to authenticate before reaching Z-Wave JS UI
+
+This ensures only authorized users can access your Z-Wave controller, even if the URL is discovered.
 
 ### Commissioning Z-Wave Devices
 
